@@ -1,0 +1,202 @@
+// package main
+
+// import (
+// 	"bytes"
+// 	"crypto/tls"
+// 	"encoding/json"
+// 	"fmt"
+// 	"io/ioutil"
+// 	"net/http"
+// 	"time"
+// 	"uuid"
+// )
+
+// // Estruturas para as classes em Python
+
+// type PayloadGeneratorCoraInvoice struct {
+// 	Code               string
+// 	CustomerName       string
+// 	DocumentIdentity   string
+// 	ServiceName        string
+// 	ServiceDescription string
+// 	ServiceAmount      int
+// 	DueDate            string
+// 	PaymentForms       []string
+// }
+
+// func (p *PayloadGeneratorCoraInvoice) Payload() map[string]interface{} {
+// 	payload := map[string]interface{}{
+// 		"code": p.Code,
+// 		"customer": map[string]interface{}{
+// 			"name": p.CustomerName,
+// 			"document": map[string]interface{}{
+// 				"identity": p.DocumentIdentity,
+// 				"type":     validateTypeDocument(p.DocumentIdentity),
+// 			},
+// 		},
+// 		"services": []map[string]interface{}{
+// 			{
+// 				"name":        p.ServiceName,
+// 				"description": p.ServiceDescription,
+// 				"amount":      p.ServiceAmount,
+// 			},
+// 		},
+// 		"payment_terms": map[string]interface{}{
+// 			"due_date": p.DueDate,
+// 		},
+// 		"payment_forms": p.PaymentForms,
+// 	}
+// 	return payload
+// }
+
+// func validateTypeDocument(document string) string {
+// 	if len(document) == 11 {
+// 		return "CPF"
+// 	}
+// 	if len(document) == 14 {
+// 		return "CNPJ"
+// 	}
+// 	return ""
+// }
+
+// func validatePaymentForm(paymentFormType int) []string {
+// 	if paymentFormType == 1 {
+// 		return []string{"PIX"}
+// 	}
+// 	if paymentFormType == 2 {
+// 		return []string{"BANK_SLIP", "PIX"}
+// 	}
+// 	return nil
+// }
+
+// // Definição da estrutura TokenInfo
+// type TokenInfo struct {
+// 	ClientID   string
+// 	CertFile   string
+// 	PrivateKey string
+// 	URL        string
+// 	Header     map[string]string
+// 	Data       map[string]string
+// }
+
+// // Carrega certificados
+// func loadCertificates(certFile, privateKey string) []tls.Certificate {
+// 	cert, err := tls.LoadX509KeyPair(certFile, privateKey)
+// 	if err != nil {
+// 		panic(err)
+// 	}
+// 	return []tls.Certificate{cert}
+// }
+
+// type EmiteBoleto2 struct {
+// 	CertFile           string
+// 	PrivateKey         string
+// 	Code               string
+// 	CustomerName       string
+// 	DocumentIdentity   string
+// 	ServiceName        string
+// 	ServiceDescription string
+// 	ServiceAmount      int
+// 	DueDate            string
+// 	PaymentForms       []string
+// 	AccessToken        string
+// 	URL                string
+// 	Header             map[string]string
+// 	ReturnStatusCode   int
+// 	ReturnResponseJSON map[string]interface{}
+// 	ClassPayload       *PayloadGeneratorCoraInvoice
+// }
+
+// func (e *EmiteBoleto2) IdempotencyKey() string {
+// 	return uuid.New().String()
+// }
+
+// func (e *EmiteBoleto2) EmitirBoleto() bool {
+// 	attempts := 0
+// 	for attempts < 3 {
+// 		JsonData := e.ClassPayload.Payload()
+// 		JsonDataBytes, err := json.Marshal(JsonData)
+
+// 		client := &http.Client{
+// 			Transport: &http.Transport{
+// 				TLSClientConfig: &tls.Config{
+// 					Certificates: loadCertificates(e.CertFile, e.PrivateKey),
+// 				},
+// 			},
+// 		}
+// 		req, err := http.NewRequest("POST", e.URL, bytes.NewBuffer(JsonDataBytes))
+
+// 		req.Header.Add("Accept", "application/json")
+// 		req.Header.Add("Idempotency-Key", e.IdempotencyKey())
+// 		req.Header.Add("Content-Type", "application/json")
+// 		req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", e.AccessToken))
+
+// 		resp, err := client.Do(req)
+// 		if err != nil {
+// 			attempts++
+// 			time.Sleep(5 * time.Second)
+// 			continue
+// 		}
+
+// 		defer resp.Body.Close()
+// 		body, err := ioutil.ReadAll(resp.Body)
+
+// 		e.ReturnStatusCode = resp.StatusCode
+// 		err = json.Unmarshal(body, &e.ReturnResponseJSON)
+
+// 		if resp.StatusCode == http.StatusOK {
+// 			return true
+// 		} else {
+// 			attempts++
+// 			time.Sleep(5 * time.Second)
+// 		}
+// 	}
+
+// 	return false
+// }
+
+// func EmiteBoleto() {
+// 	// Exemplo de uso
+// 	code := "123"
+// 	customerName := "Oswaldo Rodrigues"
+// 	documentIdentity := "00917015207"
+// 	serviceName := "Serviço de Exemplo"
+// 	serviceDescription := "Descrição do Serviço de Exemplo"
+// 	serviceAmount := 1000
+// 	dueDate := "2024-04-30"
+// 	paymentForms := validatePaymentForm(1)
+
+// 	accessToken := "eyJhbGciOiJSUzI1NiIsInR5cCIgOiAiSldUIiwia2lkIiA6ICJremdQdlJXQWNkR2d5NFQxRTk3ajZ4SGF6aEhTWjFraEc1MW4taHZDZGtzIn0.eyJleHAiOjE3MTMyODYxNTcsImlhdCI6MTcxMzI4MjU1NywianRpIjoiYTM4YWQwMDItZGIxZC00MzI1LWI5YWItNTVlMmU2OTRmNGE5IiwiaXNzIjoiaHR0cHM6Ly9hdXRoLnN0YWdlLmNvcmEuY29tLmJyL3JlYWxtcy9pbnRlZ3JhdGlvbiIsInN1YiI6IjY2OGZhYWUyLTZjYTMtNGFiYS05M2EwLTBjZjdjYmEwM2RhZiIsInR5cCI6IkJlYXJlciIsImF6cCI6ImludC03aGJVdDhiNmhOTmloa09uUmRIRWhTIiwiYWNyIjoiMSIsInNjb3BlIjoiIiwiY2xpZW50SG9zdCI6IjE4Ny40OS44OC4xNjUiLCJjbGllbnRJZCI6ImludC03aGJVdDhiNmhOTmloa09uUmRIRWhTIiwiY2xpZW50QWRkcmVzcyI6IjE4Ny40OS44OC4xNjUiLCJidXNpbmVzc19pZCI6Ijc0YzU0Mzk4LTAxZTUtNDAxZi05OWFhLWZmODE5NTMzNWFmNyIsInBlcnNvbl9pZCI6ImNjZDJjNzE0LTZmMjUtNGIxNS05MjhjLThmYjkwMDI5Mjg5NSJ9.HqvL3t-56SZx9cfTT0JcfhnpdauofZA8bslZJXrsxk8_Zjfu1mXyfdi7otH6Y2h8ILTWcNtaTY89_CX1QIVZ7Pl5ug-tN4g46NgfQW7XylRXCn6C8ZL3EbTxGCYhd4u1JM9v0hYKbHR3AklgZr4XWvfNW7Wfbgs2DYYNYKasdwwcOMVA6x7IlAGL1aNAPKXvnX1uH6uU7Pl7xXHtYPmEAffT7dwpuWiqRA-fesM-eS1pjCb6_sy_rbpQyk9TwCDFZpss8RSA73nH6oJYyBxTAVTf_WCDQ77Z5AvEh9oxsfBLVBMPekVe_ub6k5LR2UjWrdUrVwo_KSlGFg2A_vtiOA"
+
+// 	emiteBoleto := EmiteBoleto2{
+// 		CertFile:           "certificado.crt",
+// 		PrivateKey:         "chave_privada.key",
+// 		Code:               code,
+// 		CustomerName:       customerName,
+// 		DocumentIdentity:   documentIdentity,
+// 		ServiceName:        serviceName,
+// 		ServiceDescription: serviceDescription,
+// 		ServiceAmount:      serviceAmount,
+// 		DueDate:            dueDate,
+// 		PaymentForms:       paymentForms,
+// 		AccessToken:        accessToken,
+// 		URL:                "https://matls-clients.api.stage.cora.com.br/invoices",
+// 		ClassPayload: &PayloadGeneratorCoraInvoice{
+// 			Code:               code,
+// 			CustomerName:       customerName,
+// 			DocumentIdentity:   documentIdentity,
+// 			ServiceName:        serviceName,
+// 			ServiceDescription: serviceDescription,
+// 			ServiceAmount:      serviceAmount,
+// 			DueDate:            dueDate,
+// 			PaymentForms:       paymentForms,
+// 		},
+// 	}
+
+// 	success := emiteBoleto.EmitirBoleto()
+// 	if success {
+// 		fmt.Println("Boleto emitido com sucesso!")
+// 	} else {
+// 		fmt.Println("Falha na emissão do boleto!")
+// 	}
+// }
